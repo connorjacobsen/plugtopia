@@ -156,3 +156,64 @@ $ iex -S mix
 ```
 
 Now if we visit `localhost:4001` we should get back a `Hello, world!` message! Once you're ready to move on, you can kill the `iex` shell with `^C` two times.
+
+## Adding a Router
+
+Plug ships with its own router, `Plug.Router`, so we don't have to implement our own.
+
+First, let's change our `Plugtopia.Application` to use a `Plugtopia.Router` module instead of directly calling `Plugtopia.Hello`:
+
+```elixir
+defmodule Plugtopia.Application do
+  @moduledoc false
+
+  # See https://hexdocs.pm/elixir/Application.html
+  # for more information on OTP Applications
+  use Application
+
+  def start(_type, _args) do
+    children = [
+      # Define workers and child supervisors to be supervised
+      Plug.Adapters.Cowboy.child_spec(:http, Plugtopia.Router, [], [port: 4001])
+    ]
+
+    # See https://hexdocs.pm/elixir/Supervisor.html
+    # for other strategies and supported options
+    opts = [strategy: :one_for_one, name: Plugtopia.Supervisor]
+    Supervisor.start_link(children, opts)
+  end
+end
+```
+
+And then we'll define our router like so:
+
+```elixir
+# lib/plugtopia/router.ex
+defmodule Plugtopia.Router do
+  use Plug.Router
+
+  alias Plug.Conn
+
+  plug :match
+  plug Plug.Logger
+  plug :dispatch
+
+  get "/hello" do
+    Plugtopia.Hello.call(conn, [])
+  end
+
+  match _ do
+    conn
+    |> Conn.put_resp_content_type("text/plain")
+    |> Conn.send_resp(404, "Not found")
+  end
+end
+```
+
+Again, we start the server with `iex`:
+
+```bash
+$ iex -S mix
+```
+
+Now, if we visit `localhost:4001` we get a `Not Found`, and if we visit `localhost:4001/hello` we see our old `Hello, world!` message again!
